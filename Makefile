@@ -1,4 +1,4 @@
 build:
-	go build -o dist/api
+	go build -o dist/handler
 run:
 	go run main.go

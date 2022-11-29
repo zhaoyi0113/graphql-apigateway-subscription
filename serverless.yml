@@ -1,0 +1,32 @@
+service: dev-graphql-subscription
+ 
+provider:
+  name: aws
+  runtime: go1.x
+  region: ap-southeast-2
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - 'lambda:*'
+          Resource: '*'
+ 
+package:
+ exclude:
+   - ./**
+ include:
+   - ./dist/**
+ 
+functions:
+  hello:
+    handler: dist/handler
+    name: graphql-subscription-handler
+    timeout: 30
+    tracing: true
+    events:
+      - http:
+        path: /query
+        method: post
+    
+
