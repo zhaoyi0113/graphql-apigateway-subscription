@@ -1,0 +1,7 @@
+type Mutation {
+  sendChat(message: String!): ID!
+}
+
+type Query {
+  getChat(id: ID!): String!
+}
