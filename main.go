@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/graph-gophers/graphql-transport-ws/graphqlws"
 	handler "github.com/zhaoyi0113/graphql-apigateway-subscription/handler"
 	"github.com/zhaoyi0113/graphql-apigateway-subscription/resolver"
 	"github.com/zhaoyi0113/graphql-apigateway-subscription/schema"
@@ -43,6 +45,8 @@ func setupLocalEnv() {
 			w.Write([]byte(resp.Body))
 		}
 	})
+	graphQLHandler := graphqlws.NewHandlerFunc(graphqlSchema, &relay.Handler{Schema: graphqlSchema})
+	http.Handle("/graphql", graphQLHandler)
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "graphiql.html")
 	}))

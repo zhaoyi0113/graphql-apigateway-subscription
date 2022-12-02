@@ -1,7 +1,20 @@
+type Message {
+  message: String!
+  id: ID!
+}
+
 type Mutation {
   sendChat(message: String!): ID!
 }
 
 type Query {
   getChat(id: ID!): String!
+}
+
+type Subscription {
+  # Subscribe to events on the given topic.
+  event(
+    # Name of the topic to subscribe to.
+    on: String!
+  ): Message!
 }

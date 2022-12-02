@@ -28,5 +28,6 @@ functions:
       - http:
           path: /query
           method: post
+      - websocket: $connect
     
 
