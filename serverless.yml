@@ -1,5 +1,5 @@
 service: dev-graphql-subscription
- 
+
 provider:
   name: aws
   runtime: go1.x
@@ -11,23 +11,45 @@ provider:
           Action:
             - 'lambda:*'
           Resource: '*'
- 
+
 package:
- exclude:
-   - ./**
- include:
-   - ./dist/**
- 
+  exclude:
+    - ./**
+  include:
+    - ./dist/**
+
 functions:
-  hello:
-    handler: dist/handler
-    name: graphql-subscription-handler
+  # api:
+  #   handler: dist/api
+  #   name: graphql-subscription-api-handler
+  #   timeout: 30
+  #   tracing: true
+  #   environment:
+  #     HANDLER_NAME: api
+  #   events:
+  #     - http:
+  #         path: /query
+  #         method: post
+
+  ws-connect:
+    handler: dist/api
+    name: graphql-subscription-ws-connect
     timeout: 30
     tracing: true
+    environment:
+      HANDLER_NAME: connect
     events:
-      - http:
-          path: /query
-          method: post
-      - websocket: $connect
-    
+      - websocket:
+          route: $connect
+      - websocket:
+          route: $disconnect
 
+  ws-default:
+    handler: dist/api
+    name: graphql-subscription-ws-default
+    timeout: 30
+    tracing: true
+    environment:
+      HANDLER_NAME: default
+    events:
+      - websocket: $default

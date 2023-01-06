@@ -1,10 +1,11 @@
 type Message {
-  message: String!
+  msg: String!
   id: ID!
+  topic: String!
 }
 
 type Mutation {
-  sendChat(message: String!): ID!
+  sendChat(topic: String!, message: String!): ID!
 }
 
 type Query {
