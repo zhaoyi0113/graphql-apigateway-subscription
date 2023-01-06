@@ -1,14 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -34,7 +32,6 @@ func init() {
 }
 
 func setupLocalHttpEnv() {
-	// http.Handle("/query", &relay.Handler{Schema: graphqlSchema})
 	println("set up local env")
 	http.HandleFunc("/query", func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body)
@@ -56,26 +53,12 @@ func setupLocalHttpEnv() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func setupLocalEnv() {
-	ch := h.Subscribe(context.TODO(), "event", "subscription event {\n  event(on: \"xxxx\") {\n    msg\n    __typename\n  }\n}", nil)
-	go func() {
-		for resp := range ch {
-			j, _ := json.Marshal(resp)
-			fmt.Println("Receive published message", string(j))
-		}
-	}()
-
-	time.Sleep(3 * time.Second)
-	h.Exec(context.TODO(), "sendChat", "mutation sendChat{\n sendChat(topic: \"1\", message: \"hello\") }\n", nil)
-	time.Sleep(50 * time.Second)
-}
-
 func main() {
 	lambdaEnv := os.Getenv("AWS_LAMBDA_RUNTIME_API")
 	handlerName := os.Getenv("HANDLER_NAME")
 	fmt.Println("Get handler name:", handlerName)
 	if len(lambdaEnv) == 0 {
-		setupLocalEnv()
+		handler.SetupLocalEnv(h)
 	} else if handlerName == "default" {
 		lambda.Start(h.GraphqlDefaultSubscriptionHandler)
 	} else if handlerName == "connect" {
