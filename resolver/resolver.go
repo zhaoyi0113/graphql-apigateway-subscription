@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
+	handler "github.com/zhaoyi0113/graphql-apigateway-subscription/handler"
 )
 
 type Resolver struct {
@@ -49,6 +50,7 @@ var id = "1b1404d7-5c2b-4a14-bf9e-8bdc494e7234"
 
 func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
 	fmt.Println("send chat mutation")
+	fmt.Println("connectoin id:", ctx.Value("connection-id"))
 	id := graphql.ID(id)
 	message := MessageEvent{msg: args.Message, topic: args.Topic}
 	r.event <- &message
@@ -58,7 +60,8 @@ func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
 func (r *Resolver) Event(ctx context.Context, args *struct {
 	On string
 }) <-chan *MessageEvent {
-	fmt.Println("on event", args.On)
+	fmt.Println("resolver on event", args.On)
+	fmt.Println("connectoin id:", ctx.Value(handler.ConnectId{}))
 	ch := make(chan *MessageEvent)
 	r.subscribers <- &Subscriber{events: ch, topic: args.On}
 	return ch

@@ -33,7 +33,7 @@ functions:
 
   ws-connect:
     handler: dist/api
-    name: graphql-subscription-ws-connect
+    name: graphql-subscription-ws
     timeout: 30
     tracing: true
     environment:
@@ -43,13 +43,15 @@ functions:
           route: $connect
       - websocket:
           route: $disconnect
+      - websocket:
+          route: $default
 
-  ws-default:
-    handler: dist/api
-    name: graphql-subscription-ws-default
-    timeout: 30
-    tracing: true
-    environment:
-      HANDLER_NAME: default
-    events:
-      - websocket: $default
+  # ws-default:
+  #   handler: dist/api
+  #   name: graphql-subscription-ws-default
+  #   timeout: 30
+  #   tracing: true
+  #   environment:
+  #     HANDLER_NAME: default
+  #   events:
+  #     - websocket: $default

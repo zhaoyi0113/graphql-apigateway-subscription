@@ -3,12 +3,16 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	graphql "github.com/graph-gophers/graphql-go"
+	ast "github.com/vektah/gqlparser/ast"
+	parser "github.com/vektah/gqlparser/parser"
 )
 
 type Handler struct {
@@ -30,6 +34,9 @@ type GraphqlWSEvent struct {
 	Id      string
 	Type    string
 	Payload GraphqlQuery
+}
+
+type ConnectId struct {
 }
 
 func (h *Handler) GraphqlHandler(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -55,7 +62,27 @@ func (h *Handler) GraphqlHandler(ctx context.Context, event events.APIGatewayPro
 	return events.APIGatewayProxyResponse{Body: string(responseJSON), StatusCode: 200}, nil
 }
 
-func (h *Handler) GraphqlSubscriptionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+func (h *Handler) GraphqlDefaultHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+	fmt.Printf("event.RequestContext: %#v\n", event.RequestContext)
+	switch {
+	case event.RequestContext.EventType == "CONNECT":
+		return h.graphqlConnectionHandler(ctx, event)
+	case event.RequestContext.EventType == "MESSAGE":
+		return h.graphqlMessageHandler(ctx, event), nil
+	case event.RequestContext.EventType == "DISCONNECT":
+		return h.graphqlDisconnectionHandler(ctx, event)
+	default:
+		fmt.Printf("Unknown connection type %s.", event.RequestContext.EventType)
+	}
+	return events.APIGatewayProxyResponse{Body: "", StatusCode: 400}, errors.New("Invalid connection type:" + event.RequestContext.EventType)
+}
+
+func (h *Handler) graphqlDisconnectionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+	fmt.Println("Disconnect connection:", ctx.Value(ConnectId{}))
+	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
+}
+
+func (h *Handler) graphqlConnectionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("receive event:", event)
 	lc, _ := lambdacontext.FromContext(ctx)
 	log.Println("event.RequestContext ConnectionID:", event.RequestContext.ConnectionID)
@@ -63,35 +90,14 @@ func (h *Handler) GraphqlSubscriptionHandler(ctx context.Context, event events.A
 	log.Println("body", event.Body)
 	log.Println("PathParameters", event.PathParameters)
 	log.Println("QueryStringParameters", event.QueryStringParameters)
-	// type params struct {
-	// 	Query         string                 `json:"query"`
-	// 	OperationName string                 `json:"operationName"`
-	// 	Variables     map[string]interface{} `json:"variables"`
-	// }
-	// var bodyType struct {
-	// 	Id      string `json:"id"`
-	// 	Type    string `json:"type"`
-	// 	Payload params `json:"payload"`
-	// }
-	// if err := json.Unmarshal([]byte(event.Body), &bodyType); err != nil {
-	// 	log.Println("Failed to parse body", err, event)
-	// 	return events.APIGatewayProxyResponse{Body: "Can't parse request body", StatusCode: 400}, nil
-	// }
-	// fmt.Println("payload", bodyType.Payload)
-	// response := h.schema.Exec(ctx, bodyType.Payload.Query, bodyType.Payload.OperationName, bodyType.Payload.Variables)
-	// responseJSON, err := json.Marshal(response)
-	// if err != nil {
-	// 	return events.APIGatewayProxyResponse{Body: "Can't execute graphql request", StatusCode: 500}, nil
-	// }
-
-	// return events.APIGatewayProxyResponse{Body: string(responseJSON), StatusCode: 200}, nil
 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
 }
 
-func (h *Handler) GraphqlDefaultSubscriptionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) events.APIGatewayProxyResponse {
 	log.Println("receive event:", event)
 	lc, _ := lambdacontext.FromContext(ctx)
-	log.Println("event.RequestContext:", event.RequestContext.ConnectionID)
+	fmt.Printf("event.RequestContext: %#v\n", event.RequestContext)
+	log.Println("Connection id:", event.RequestContext.ConnectionID)
 	log.Println("context:", lc)
 	log.Println("body", event.Body)
 	log.Println("PathParameters", event.PathParameters)
@@ -100,35 +106,61 @@ func (h *Handler) GraphqlDefaultSubscriptionHandler(ctx context.Context, event e
 	var params GraphqlWSEvent
 	if err := json.Unmarshal([]byte(event.Body), &params); err != nil {
 		log.Println("Failed to parse body", err, event)
-		return events.APIGatewayProxyResponse{Body: "Can't parse request body", StatusCode: 400}, nil
+		return events.APIGatewayProxyResponse{Body: "Can't parse request body", StatusCode: 400}
 	}
 	if params.Type == "start" {
 		fmt.Printf("Get start type %#v\n", params)
 	}
 	if params.Type == "connection_init" {
 		fmt.Printf("Get connection_init type %#v\n", params)
-		return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
+		return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
 	}
-	fmt.Println("Exec graphql query:", params)
-	channel, err := h.schema.Subscribe(ctx, params.Payload.Query, params.Payload.OperationName, params.Payload.Variables)
-	fmt.Println("channel", channel)
-	if err != nil {
-		log.Println("Subscribe failed", err)
-		return events.APIGatewayProxyResponse{Body: "Can't execute graphql request", StatusCode: 500}, nil
+	payload, _ := json.Marshal(params)
+	fmt.Println("Exec graphql query payload: ", string(payload))
+
+	ctx = context.WithValue(ctx, ConnectId{}, event.RequestContext.ConnectionID)
+
+	doc, _ := parser.ParseQuery(&ast.Source{Input: params.Payload.Query})
+	fmt.Print("doc:v#%\n", doc)
+	for _, o := range doc.Operations {
+		fmt.Println("O:", o.Operation, o.Name)
+		if o.Operation == "subscription" {
+			channel := h.Subscribe(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
+			select {
+			case r := <-channel:
+				resp, _ := json.Marshal(r)
+				fmt.Println("response from subscription ", string(resp))
+				return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+			case <-time.After(3 * time.Second):
+				fmt.Println("subscription success")
+				return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+			}
+		} else {
+			h.Exec(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
+			return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+		}
 	}
-	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
+	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
 }
 
 func (h *Handler) Subscribe(ctx context.Context, operationName string, query string, variables map[string]interface{}) <-chan interface{} {
 	response := make(chan interface{})
+
 	go func() {
-		fmt.Println("subscribe", operationName)
+		fmt.Println("subscribe", operationName, ",", query)
 		res, err := h.schema.Subscribe(ctx, query, operationName, variables)
 		if err != nil {
+			fmt.Println("Subscription failed")
 			log.Println(err)
+			response <- err
 		}
-		r := <-res
-		response <- r
+		select {
+		case r := <-res:
+			response <- r
+		case <-time.After(3 * time.Second):
+			fmt.Println("reponse subscription successfully.")
+			response <- ""
+		}
 	}()
 	return response
 }
@@ -136,6 +168,10 @@ func (h *Handler) Subscribe(ctx context.Context, operationName string, query str
 func (h *Handler) Exec(ctx context.Context, operationName string, query string, variables map[string]interface{}) {
 	fmt.Println("exec", operationName)
 	response := h.schema.Exec(ctx, query, operationName, variables)
+
+	if response.Errors != nil {
+		log.Println(operationName, "response error:", response.Errors)
+	}
 	j, _ := json.Marshal(&response.Data)
 	fmt.Println("exec ", operationName, "response:", string(j))
 }

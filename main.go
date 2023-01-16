@@ -56,12 +56,10 @@ func setupLocalHttpEnv() {
 func main() {
 	lambdaEnv := os.Getenv("AWS_LAMBDA_RUNTIME_API")
 	handlerName := os.Getenv("HANDLER_NAME")
-	fmt.Println("Get handler name:", handlerName)
+	fmt.Println("Get handler name:", handlerName, lambdaEnv)
 	if len(lambdaEnv) == 0 {
 		handler.SetupLocalEnv(h)
-	} else if handlerName == "default" {
-		lambda.Start(h.GraphqlDefaultSubscriptionHandler)
-	} else if handlerName == "connect" {
-		lambda.Start(h.GraphqlSubscriptionHandler)
+	} else {
+		lambda.Start(h.GraphqlDefaultHandler)
 	}
 }
