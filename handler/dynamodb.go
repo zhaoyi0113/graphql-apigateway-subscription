@@ -31,11 +31,20 @@ type SubscriberItemType struct {
 	Topic       string `dynamodbav:"topic"`
 }
 
+type EventItemType struct {
+	Id          string `dynamodbav:"id"`
+	Type        string `dynamodbav:"type"`
+	CreatedTime string `dynamodbav:"createdTime"`
+	Topic       string `dynamodbav:"topic"`
+	Message     string `dynamodbav:"message"`
+}
+
 type ItemType string
 
 const (
 	CONNECTION ItemType = "connection.core"
 	SUBSCRIBER ItemType = "connection.subscriber"
+	Event      ItemType = "event."
 )
 
 const tableName = "Connection"
@@ -100,21 +109,51 @@ func (c *ConnectionDb) SaveSubscriber(id string, topic string) {
 	fmt.Println("Save item response", res)
 }
 
-func (c *ConnectionDb) GetSubscribers(id string, topic string) map[string]types.AttributeValue {
-	key := struct {
-		Id   string `dynamodbav:"id"`
-		Type string `dyanmodbav:"type"`
-	}{Id: id, Type: string(SUBSCRIBER)}
-	item, err := attributevalue.MarshalMap(key)
+func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
+
+	fmt.Println("Save connection", id, topic, "on db")
+	itemMap := EventItemType{
+		Id:          id,
+		Type:        string(Event) + fmt.Sprint(time.Now().UnixMilli()),
+		CreatedTime: time.Now().Format(time.RFC3339),
+		Topic:       topic,
+		Message:     message,
+	}
+	item, err := attributevalue.MarshalMap(itemMap)
 	if err != nil {
 		log.Panic("Failed to marsh item", id)
 	}
+	fmt.Println("Marshaled item", item)
+	input := &dynamodb.PutItemInput{
+		Item:      item,
+		TableName: aws.String(tableName),
+	}
+	res, err := c.db.PutItem(context.Background(), input)
+	if err != nil {
+		log.Panic("Failed to save item on db", id, err)
+	}
+	fmt.Println("Save item response", res)
+}
+
+func (c *ConnectionDb) GetSubscribers(id string, topic string) map[string]types.AttributeValue {
+	key := struct {
+		Id   string `dynamodbav:"id"`
+		Type string `dynamodbav:"type"`
+	}{Id: id, Type: string(SUBSCRIBER)}
+	item, err := attributevalue.MarshalMap(key)
+	if err != nil {
+		log.Panic("Failed to marsh item", id, err)
+	}
+	fmt.Println("Fetch item from db", item)
+	time.Sleep(3 * time.Second)
+	fmt.Printf("Fetch %#v\n", item)
 	out, err := c.db.GetItem(context.TODO(), &dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
 		Key:       item,
 	})
+	fmt.Println("Fetched item from db", out)
 	if err != nil {
-		log.Panic(err)
+		log.Panic("Failed to get item", id, err)
 	}
 	return out.Item
 }

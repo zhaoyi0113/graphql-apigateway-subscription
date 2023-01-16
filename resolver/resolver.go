@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
@@ -59,6 +60,7 @@ func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
 	id := graphql.ID(id)
 	message := MessageEvent{msg: args.Message, topic: args.Topic, connectionId: connId}
 	r.event <- &message
+	r.connectionDb.SaveEvent(connId, args.Topic, args.Message)
 	return id
 }
 
@@ -83,8 +85,9 @@ func (r *Resolver) broadcastChat() {
 			r.connectionDb.SaveSubscriber(s.connectionId, s.topic)
 		case e := <-r.event:
 			fmt.Println("publish event", e)
+			time.Sleep(3 * time.Second)
 			items := r.connectionDb.GetSubscribers(e.connectionId, e.topic)
-			fmt.Println("Get subscribers:", items)
+			fmt.Println("Get subscriber:", items)
 			for _, item := range items {
 				fmt.Println("Get subscribers:", item)
 			}

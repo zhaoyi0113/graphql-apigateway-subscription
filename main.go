@@ -59,7 +59,12 @@ func main() {
 	fmt.Println("Get handler name:", handlerName, lambdaEnv)
 	if len(lambdaEnv) == 0 {
 		handler.SetupLocalEnv(h)
-	} else {
+		return
+	}
+	switch {
+	case handlerName == "graphql":
 		lambda.Start(h.GraphqlDefaultHandler)
+	case handlerName == "stream":
+		lambda.Start(handler.StreamHandler)
 	}
 }

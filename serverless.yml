@@ -26,7 +26,7 @@ functions:
     timeout: 30
     tracing: true
     environment:
-      HANDLER_NAME: connect
+      HANDLER_NAME: graphql
     events:
       - websocket:
           route: $connect
@@ -34,6 +34,25 @@ functions:
           route: $disconnect
       - websocket:
           route: $default
+  dbstream:
+    handler: dist/api
+    name: dbstream
+    timeout: 30
+    tracing: true
+    environment:
+      HANDLER_NAME: stream
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [ConnectionTable, StreamArn]
+            # filterPatterns:
+            #   - eventName: [MODIFY, INSERT]
+            # dynamodb:
+            #   NewImage:
+            #     type:
+            #       S:
+            #         - prefix: event.
 
 resources:
   Resources:
@@ -52,4 +71,5 @@ resources:
           - AttributeName: type
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
-        
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES

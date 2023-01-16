@@ -118,9 +118,8 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 	ctx = context.WithValue(ctx, ConnectId{}, event.RequestContext.ConnectionID)
 
 	doc, _ := parser.ParseQuery(&ast.Source{Input: params.Payload.Query})
-	fmt.Print("doc:v#%\n", doc)
 	for _, o := range doc.Operations {
-		fmt.Println("O:", o.Operation, o.Name)
+		fmt.Println("Operation:", o.Operation, o.Name)
 		if o.Operation == "subscription" {
 			channel := h.Subscribe(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
 			select {
