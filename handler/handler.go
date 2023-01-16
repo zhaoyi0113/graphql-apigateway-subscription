@@ -16,11 +16,12 @@ import (
 )
 
 type Handler struct {
-	schema *graphql.Schema
+	schema       *graphql.Schema
+	connectionDb *ConnectionDb
 }
 
 func New(schema *graphql.Schema) *Handler {
-	h := Handler{schema}
+	h := Handler{schema, NewConnectionDb()}
 	return &h
 }
 
@@ -84,12 +85,8 @@ func (h *Handler) graphqlDisconnectionHandler(ctx context.Context, event events.
 
 func (h *Handler) graphqlConnectionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("receive event:", event)
-	lc, _ := lambdacontext.FromContext(ctx)
 	log.Println("event.RequestContext ConnectionID:", event.RequestContext.ConnectionID)
-	log.Println("context:", lc)
-	log.Println("body", event.Body)
-	log.Println("PathParameters", event.PathParameters)
-	log.Println("QueryStringParameters", event.QueryStringParameters)
+	h.connectionDb.SaveConnection(event.RequestContext.ConnectionID)
 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
 }
 

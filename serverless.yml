@@ -10,6 +10,7 @@ provider:
         - Effect: 'Allow'
           Action:
             - 'lambda:*'
+            - 'dynamodb:*'
           Resource: '*'
 
 package:
@@ -19,18 +20,6 @@ package:
     - ./dist/**
 
 functions:
-  # api:
-  #   handler: dist/api
-  #   name: graphql-subscription-api-handler
-  #   timeout: 30
-  #   tracing: true
-  #   environment:
-  #     HANDLER_NAME: api
-  #   events:
-  #     - http:
-  #         path: /query
-  #         method: post
-
   ws-connect:
     handler: dist/api
     name: graphql-subscription-ws
@@ -46,12 +35,21 @@ functions:
       - websocket:
           route: $default
 
-  # ws-default:
-  #   handler: dist/api
-  #   name: graphql-subscription-ws-default
-  #   timeout: 30
-  #   tracing: true
-  #   environment:
-  #     HANDLER_NAME: default
-  #   events:
-  #     - websocket: $default
+resources:
+  Resources:
+    ConnectionTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Connection
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: type
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+          - AttributeName: type
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        
