@@ -96,11 +96,20 @@ func (c *ConnectionDb) Disconnect(id string) {
 		log.Panic("Failed to mashal key", id)
 	}
 	output, err := c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		Key: item,
+		Key:       item,
+		TableName: aws.String(tableName),
 	})
 	if err != nil {
-		log.Panic("Cant delete item", id)
+		log.Panic("Cant delete item", id, err)
 	}
+	key = struct {
+		Id   string `dynamodbav:"id"`
+		Type string `dynamodbav:"type"`
+	}{Id: id, Type: string(SUBSCRIBER)}
+	c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		Key:       item,
+		TableName: aws.String(tableName),
+	})
 	fmt.Println("Delete item output", output)
 }
 

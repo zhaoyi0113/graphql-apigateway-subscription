@@ -79,8 +79,8 @@ func (h *Handler) GraphqlDefaultHandler(ctx context.Context, event events.APIGat
 }
 
 func (h *Handler) graphqlDisconnectionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
-	fmt.Println("Disconnect connection:", ctx.Value(ConnectId{}))
-	h.connectionDb.Disconnect((ctx.Value(ConnectId{}).(string)))
+	fmt.Println("Disconnect connection:", event.RequestContext.ConnectionID)
+	h.connectionDb.Disconnect(event.RequestContext.ConnectionID)
 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
 }
 
