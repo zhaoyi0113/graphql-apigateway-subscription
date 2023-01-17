@@ -40,6 +40,8 @@ type GraphqlWSEvent struct {
 type ConnectId struct {
 }
 
+type EventId struct{}
+
 func (h *Handler) GraphqlHandler(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	println("receive event", event.Headers, event.Path, event.Body)
 	var params struct {
@@ -117,6 +119,7 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 	fmt.Println("Exec graphql query payload: ", string(payload))
 
 	ctx = context.WithValue(ctx, ConnectId{}, event.RequestContext.ConnectionID)
+	ctx = context.WithValue(ctx, EventId{}, params.Id)
 
 	doc, _ := parser.ParseQuery(&ast.Source{Input: params.Payload.Query})
 	for _, o := range doc.Operations {
@@ -133,8 +136,8 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 				return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
 			}
 		} else {
-			h.Exec(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
-			return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+			res := h.Exec(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
+			return events.APIGatewayProxyResponse{Body: res, StatusCode: 200}
 		}
 	}
 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
@@ -153,6 +156,7 @@ func (h *Handler) Subscribe(ctx context.Context, operationName string, query str
 		}
 		select {
 		case r := <-res:
+			fmt.Printf("Get response %#v\n", r)
 			response <- r
 		case <-time.After(3 * time.Second):
 			fmt.Println("reponse subscription successfully.")
@@ -162,7 +166,7 @@ func (h *Handler) Subscribe(ctx context.Context, operationName string, query str
 	return response
 }
 
-func (h *Handler) Exec(ctx context.Context, operationName string, query string, variables map[string]interface{}) {
+func (h *Handler) Exec(ctx context.Context, operationName string, query string, variables map[string]interface{}) string {
 	fmt.Println("exec", operationName)
 	response := h.schema.Exec(ctx, query, operationName, variables)
 
@@ -171,4 +175,10 @@ func (h *Handler) Exec(ctx context.Context, operationName string, query string, 
 	}
 	j, _ := json.Marshal(&response.Data)
 	fmt.Println("exec ", operationName, "response:", string(j))
+	data, err := response.Data.MarshalJSON()
+	if err != nil {
+		log.Panic("Cant parse query response.", query)
+	}
+	fmt.Println("Response:", string(data))
+	return string(data)
 }

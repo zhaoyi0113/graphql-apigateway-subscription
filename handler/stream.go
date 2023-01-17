@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 )
 
@@ -41,24 +42,33 @@ func StreamHandler(ctx context.Context, e events.DynamoDBEvent) {
 	db := NewConnectionDb()
 	for _, record := range e.Records {
 		fmt.Printf("Processing request data for event ID %s, type %s.\n", record.EventID, record.EventName)
-		id := record.Change.NewImage["id"].String()
+		topic := record.Change.NewImage["topic"].String()
 		message := record.Change.NewImage["message"].String()
-		fmt.Println("get event", id, message)
-		subscribers := db.GetSubscribers(id)
+		fmt.Println("get event", topic, message)
+		subscribers := db.GetSubscribers(topic)
 		fmt.Println("Get subscribers:", subscribers)
 		for _, subscriber := range subscribers {
-			str, _ := json.Marshal(subscriber)
-			fmt.Println("publish to subscriber:", string(str))
-			payload := map[string]string{
-				"id":      id,
-				"type":    "data",
-				"payload": message,
+			sub := map[string]string{}
+			attributevalue.UnmarshalMap(subscriber, &sub)
+			fmt.Printf("subscribe data %#v\n", sub)
+			connectionId := sub["connectionId"]
+			payload := map[string]interface{}{
+				"type": "data",
+				"id":   sub["eventId"],
+				"payload": map[string]interface{}{
+					"data": map[string]interface{}{
+						"event": map[string]interface{}{
+							"msg":   message,
+							"topic": topic,
+						},
+					},
+				},
 			}
 			j, _ := json.Marshal(payload)
-			fmt.Println("publish", j)
+			fmt.Println("publish to", connectionId, string(j))
 			output, err := api.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
-				ConnectionId: &id,
-				Data:         []byte(j),
+				ConnectionId: &connectionId,
+				Data:         j,
 			})
 			if err != nil {
 				log.Fatal("Failed to post to connection", err)

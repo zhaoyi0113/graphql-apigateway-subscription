@@ -59,19 +59,22 @@ func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
 	fmt.Println("connectoin id:", ctx.Value(handler.ConnectId{}))
 	id := graphql.ID(id)
 	message := MessageEvent{msg: args.Message, topic: args.Topic, connectionId: connId}
-	r.event <- &message
 	r.connectionDb.SaveEvent(connId, args.Topic, args.Message)
+	r.event <- &message
 	return id
 }
 
 func (r *Resolver) Event(ctx context.Context, args *struct {
 	On string
-}) <-chan *MessageEvent {
+}) chan *MessageEvent {
 	fmt.Println("resolver on event", args.On)
 	fmt.Println("connectoin id:", ctx.Value(handler.ConnectId{}))
 	connId := ctx.Value(handler.ConnectId{}).(string)
+	eventId := ctx.Value(handler.EventId{}).(string)
 	ch := make(chan *MessageEvent)
-	r.subscribers <- &Subscriber{events: ch, topic: args.On, connectionId: connId}
+	go func() {
+		r.connectionDb.SaveSubscriber(connId, args.On, eventId)
+	}()
 	return ch
 }
 
@@ -82,7 +85,6 @@ func (r *Resolver) broadcastChat() {
 		case s := <-r.subscribers:
 			fmt.Println("add a subscriber", s)
 			subscribers[uuid.New().String()] = s
-			r.connectionDb.SaveSubscriber(s.connectionId, s.topic)
 		case e := <-r.event:
 			fmt.Println("publish event", e)
 			time.Sleep(3 * time.Second)

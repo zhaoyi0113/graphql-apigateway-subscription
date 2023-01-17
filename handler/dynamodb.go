@@ -25,10 +25,12 @@ type ConnectionItemType struct {
 }
 
 type SubscriberItemType struct {
-	Id          string `dynamodbav:"id"`
-	Type        string `dynamodbav:"type"`
-	CreatedTime string `dynamodbav:"createdTime"`
-	Topic       string `dynamodbav:"topic"`
+	Id           string `dynamodbav:"id"`
+	Type         string `dynamodbav:"type"`
+	CreatedTime  string `dynamodbav:"createdTime"`
+	Topic        string `dynamodbav:"topic"`
+	ConnectionId string `dynamodbav:"connectionId"`
+	EventId      string `dynamodbav:"eventId"`
 }
 
 type EventItemType struct {
@@ -113,13 +115,15 @@ func (c *ConnectionDb) Disconnect(id string) {
 	fmt.Println("Delete item output", output)
 }
 
-func (c *ConnectionDb) SaveSubscriber(id string, topic string) {
+func (c *ConnectionDb) SaveSubscriber(id string, topic string, eventId string) {
 	fmt.Println("Save connection", id, topic, "on db")
 	itemMap := SubscriberItemType{
-		Id:          id,
-		Type:        string(SUBSCRIBER),
-		CreatedTime: time.Now().Format(time.RFC3339),
-		Topic:       topic,
+		Id:           topic,
+		Type:         string(SUBSCRIBER),
+		CreatedTime:  time.Now().Format(time.RFC3339),
+		Topic:        topic,
+		ConnectionId: id,
+		EventId:      eventId,
 	}
 	item, err := attributevalue.MarshalMap(itemMap)
 	if err != nil {
@@ -163,28 +167,28 @@ func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
 	fmt.Println("Save item response", res)
 }
 
-func (c *ConnectionDb) GetSubscribers(id string) []map[string]types.AttributeValue {
+func (c *ConnectionDb) GetSubscribers(topic string) []map[string]types.AttributeValue {
 	key := struct {
 		Id   string `dynamodbav:"id"`
 		Type string `dynamodbav:"type"`
-	}{Id: id, Type: string(SUBSCRIBER)}
+	}{Id: topic, Type: string(SUBSCRIBER)}
 	item, err := attributevalue.MarshalMap(key)
 	if err != nil {
-		log.Panic("Failed to marsh item", id, err)
+		log.Panic("Failed to marsh item", topic, err)
 	}
-	fmt.Println("Fetch item from db", id, item)
+	fmt.Println("Fetch item from db", topic, item)
 	out, err := c.db.Query(context.TODO(), &dynamodb.QueryInput{
 		TableName:                aws.String(tableName),
-		KeyConditionExpression:   aws.String("id = :id and #type > :type"),
+		KeyConditionExpression:   aws.String("id = :id and #type = :type"),
 		ExpressionAttributeNames: map[string]string{"#type": "type"},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":id":   &types.AttributeValueMemberS{Value: id},
+			":id":   &types.AttributeValueMemberS{Value: topic},
 			":type": &types.AttributeValueMemberS{Value: string(SUBSCRIBER)},
 		},
 	})
-	fmt.Println("Fetched item from db", out)
+	fmt.Println("Fetched item from db", out.Count)
 	if err != nil {
-		log.Panic("Failed to get item", id, err)
+		log.Panic("Failed to get item", topic, err)
 	}
 	return out.Items
 }
