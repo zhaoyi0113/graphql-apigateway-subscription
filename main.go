@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/graph-gophers/graphql-transport-ws/graphqlws"
@@ -58,7 +60,17 @@ func main() {
 	handlerName := os.Getenv("HANDLER_NAME")
 	fmt.Println("Get handler name:", handlerName, lambdaEnv)
 	if len(lambdaEnv) == 0 {
-		handler.SetupLocalEnv(h)
+		// handler.SetupLocalEnv(h)
+		api := handler.GetApiClient()
+		id := "e279UdBFywMCFyQ="
+		output, err := api.PostToConnection(context.Background(), &apigatewaymanagementapi.PostToConnectionInput{
+			ConnectionId: &id,
+			Data:         []byte("hello"),
+		})
+		if err != nil {
+			log.Fatal("Failed to post to connection", err)
+		}
+		fmt.Println("post to connection response", output)
 		return
 	}
 	switch {

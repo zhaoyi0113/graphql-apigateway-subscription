@@ -11,6 +11,7 @@ provider:
           Action:
             - 'lambda:*'
             - 'dynamodb:*'
+            - execute-api:Invoke
           Resource: '*'
 
 package:
@@ -46,13 +47,13 @@ functions:
           type: dynamodb
           arn:
             Fn::GetAtt: [ConnectionTable, StreamArn]
-            # filterPatterns:
-            #   - eventName: [MODIFY, INSERT]
-            # dynamodb:
-            #   NewImage:
-            #     type:
-            #       S:
-            #         - prefix: event.
+          filterPatterns:
+            - eventName: [MODIFY, INSERT]
+              dynamodb:
+                NewImage:
+                  type:
+                    S:
+                      - prefix: event.
 
 resources:
   Resources:

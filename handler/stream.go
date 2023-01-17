@@ -2,20 +2,69 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 )
 
+func GetApiClient() *apigatewaymanagementapi.Client {
+	defaultRegion := "ap-southeast-2"
+	url := "https://jkpmcizu0i.execute-api.ap-southeast-2.amazonaws.com/dev/"
+	resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+		if service == apigatewaymanagementapi.ServiceID && region == defaultRegion {
+			return aws.Endpoint{
+				PartitionID:   "aws",
+				URL:           url,
+				SigningRegion: defaultRegion,
+			}, nil
+		}
+		return aws.Endpoint{}, fmt.Errorf("unknown endpoint requested")
+	})
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(defaultRegion),
+		config.WithEndpointResolver(resolver),
+	)
+	if err != nil {
+		log.Panic("cfg err")
+	}
+
+	return apigatewaymanagementapi.NewFromConfig(cfg)
+}
 func StreamHandler(ctx context.Context, e events.DynamoDBEvent) {
 	fmt.Println("Receive stream event", e)
-	// db := NewConnectionDb()
+	api := GetApiClient()
+	db := NewConnectionDb()
 	for _, record := range e.Records {
 		fmt.Printf("Processing request data for event ID %s, type %s.\n", record.EventID, record.EventName)
-		for name, value := range record.Change.NewImage {
-			if value.DataType() == events.DataTypeString {
-				fmt.Printf("Attribute name: %s, value: %s\n", name, value.String())
+		id := record.Change.NewImage["id"].String()
+		message := record.Change.NewImage["message"].String()
+		fmt.Println("get event", id, message)
+		subscribers := db.GetSubscribers(id)
+		fmt.Println("Get subscribers:", subscribers)
+		for _, subscriber := range subscribers {
+			str, _ := json.Marshal(subscriber)
+			fmt.Println("publish to subscriber:", string(str))
+			payload := map[string]string{
+				"id":      id,
+				"type":    "data",
+				"payload": message,
 			}
+			j, _ := json.Marshal(payload)
+			fmt.Println("publish", j)
+			output, err := api.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+				ConnectionId: &id,
+				Data:         []byte(j),
+			})
+			if err != nil {
+				log.Fatal("Failed to post to connection", err)
+				continue
+			}
+			fmt.Println("post to connection response", output)
 		}
 	}
 }

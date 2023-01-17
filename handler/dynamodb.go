@@ -85,6 +85,25 @@ func (c *ConnectionDb) SaveConnection(id string) {
 	fmt.Println("Save item response", res)
 }
 
+func (c *ConnectionDb) Disconnect(id string) {
+	fmt.Println("Disconnect connection", id)
+	key := struct {
+		Id   string `dynamodbav:"id"`
+		Type string `dynamodbav:"type"`
+	}{Id: id, Type: string(CONNECTION)}
+	item, err := attributevalue.MarshalMap(key)
+	if err != nil {
+		log.Panic("Failed to mashal key", id)
+	}
+	output, err := c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		Key: item,
+	})
+	if err != nil {
+		log.Panic("Cant delete item", id)
+	}
+	fmt.Println("Delete item output", output)
+}
+
 func (c *ConnectionDb) SaveSubscriber(id string, topic string) {
 	fmt.Println("Save connection", id, topic, "on db")
 	itemMap := SubscriberItemType{
@@ -135,7 +154,7 @@ func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
 	fmt.Println("Save item response", res)
 }
 
-func (c *ConnectionDb) GetSubscribers(id string, topic string) map[string]types.AttributeValue {
+func (c *ConnectionDb) GetSubscribers(id string) []map[string]types.AttributeValue {
 	key := struct {
 		Id   string `dynamodbav:"id"`
 		Type string `dynamodbav:"type"`
@@ -144,16 +163,19 @@ func (c *ConnectionDb) GetSubscribers(id string, topic string) map[string]types.
 	if err != nil {
 		log.Panic("Failed to marsh item", id, err)
 	}
-	fmt.Println("Fetch item from db", item)
-	time.Sleep(3 * time.Second)
-	fmt.Printf("Fetch %#v\n", item)
-	out, err := c.db.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
-		Key:       item,
+	fmt.Println("Fetch item from db", id, item)
+	out, err := c.db.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName:                aws.String(tableName),
+		KeyConditionExpression:   aws.String("id = :id and #type > :type"),
+		ExpressionAttributeNames: map[string]string{"#type": "type"},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":id":   &types.AttributeValueMemberS{Value: id},
+			":type": &types.AttributeValueMemberS{Value: string(SUBSCRIBER)},
+		},
 	})
 	fmt.Println("Fetched item from db", out)
 	if err != nil {
 		log.Panic("Failed to get item", id, err)
 	}
-	return out.Item
+	return out.Items
 }

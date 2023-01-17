@@ -86,7 +86,7 @@ func (r *Resolver) broadcastChat() {
 		case e := <-r.event:
 			fmt.Println("publish event", e)
 			time.Sleep(3 * time.Second)
-			items := r.connectionDb.GetSubscribers(e.connectionId, e.topic)
+			items := r.connectionDb.GetSubscribers(e.connectionId)
 			fmt.Println("Get subscriber:", items)
 			for _, item := range items {
 				fmt.Println("Get subscribers:", item)
