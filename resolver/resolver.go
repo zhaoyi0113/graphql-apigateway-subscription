@@ -21,10 +21,9 @@ type GetChatArgs struct {
 }
 
 type MessageEvent struct {
-	msg          string     `json:"msg"`
-	id           graphql.ID `json:"id"`
-	topic        string     `json:"topic"`
-	connectionId string     `json:"connectionId"`
+	msg   string     `json:"msg"`
+	id    graphql.ID `json:"id"`
+	topic string     `json:"topic"`
 }
 
 type Subscriber struct {
@@ -44,7 +43,14 @@ func NewResolver() *Resolver {
 	return r
 }
 
-func (r *Resolver) GetChat(ctx context.Context, args GetChatArgs) string { return "Hello, world!" }
+func (r *Resolver) GetChat(ctx context.Context, args GetChatArgs) *MessageEvent {
+	msg := MessageEvent{
+		msg:   "Hello world!",
+		topic: "xxx",
+		id:    "aa",
+	}
+	return &msg
+}
 
 type SendChatArgs struct {
 	Message string
@@ -54,12 +60,10 @@ type SendChatArgs struct {
 var id = "1b1404d7-5c2b-4a14-bf9e-8bdc494e7234"
 
 func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
-	fmt.Println("send chat mutation")
-	connId := ctx.Value(handler.ConnectId{}).(string)
-	fmt.Println("connectoin id:", ctx.Value(handler.ConnectId{}))
+	fmt.Println("send chat mutation", args.Message, args.Topic)
 	id := graphql.ID(id)
-	message := MessageEvent{msg: args.Message, topic: args.Topic, connectionId: connId}
-	r.connectionDb.SaveEvent(connId, args.Topic, args.Message)
+	message := MessageEvent{msg: args.Message, topic: args.Topic}
+	r.connectionDb.SaveEvent(args.Topic, args.Message)
 	r.event <- &message
 	return id
 }
@@ -88,7 +92,7 @@ func (r *Resolver) broadcastChat() {
 		case e := <-r.event:
 			fmt.Println("publish event", e)
 			time.Sleep(3 * time.Second)
-			items := r.connectionDb.GetSubscribers(e.connectionId)
+			items := r.connectionDb.GetSubscribers(e.topic)
 			fmt.Println("Get subscriber:", items)
 			for _, item := range items {
 				fmt.Println("Get subscribers:", item)

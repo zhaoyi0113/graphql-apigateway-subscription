@@ -9,7 +9,7 @@ type Mutation {
 }
 
 type Query {
-  getChat(id: ID!): String!
+  getChat(id: ID!): Message!
 }
 
 type Subscription {

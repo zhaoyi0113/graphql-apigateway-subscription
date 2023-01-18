@@ -21,13 +21,26 @@ package:
     - ./dist/**
 
 functions:
+  graphql:
+    handler: dist/api
+    name: graphql-query-mutation
+    timeout: 30
+    tracing: true
+    environment:
+      HANDLER_NAME: querymutation
+    events:
+      - http:
+          path: /graphql
+          method: post
+          
+
   ws-connect:
     handler: dist/api
     name: graphql-subscription-ws
     timeout: 30
     tracing: true
     environment:
-      HANDLER_NAME: graphql
+      HANDLER_NAME: subscription
     events:
       - websocket:
           route: $connect
@@ -37,7 +50,7 @@ functions:
           route: $default
   dbstream:
     handler: dist/api
-    name: dbstream
+    name: graphql-subscription-dbstream
     timeout: 30
     tracing: true
     environment:

@@ -65,7 +65,7 @@ func (h *Handler) GraphqlHandler(ctx context.Context, event events.APIGatewayPro
 	return events.APIGatewayProxyResponse{Body: string(responseJSON), StatusCode: 200}, nil
 }
 
-func (h *Handler) GraphqlDefaultHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+func (h *Handler) GraphqlSubscriptionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	fmt.Printf("event.RequestContext: %#v\n", event.RequestContext)
 	switch {
 	case event.RequestContext.EventType == "CONNECT":
@@ -91,6 +91,16 @@ func (h *Handler) graphqlConnectionHandler(ctx context.Context, event events.API
 	log.Println("event.RequestContext ConnectionID:", event.RequestContext.ConnectionID)
 	h.connectionDb.SaveConnection(event.RequestContext.ConnectionID)
 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
+}
+
+func (h *Handler) GraphqlQueryMutationHandler(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	fmt.Printf("receive query mutation %#v\n", event)
+	var body GraphqlQuery
+	if err := json.Unmarshal([]byte(event.Body), &body); err != nil {
+		log.Panic("Failed to parse body", err)
+	}
+	response := h.Exec(ctx, body.OperationName, body.Query, body.Variables)
+	return events.APIGatewayProxyResponse{Body: response, StatusCode: 200}, nil
 }
 
 func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) events.APIGatewayProxyResponse {
@@ -137,6 +147,7 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 			}
 		} else {
 			res := h.Exec(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)
+			fmt.Printf("query response %#v\n", res)
 			return events.APIGatewayProxyResponse{Body: res, StatusCode: 200}
 		}
 	}
@@ -156,7 +167,7 @@ func (h *Handler) Subscribe(ctx context.Context, operationName string, query str
 		}
 		select {
 		case r := <-res:
-			fmt.Printf("Get response %#v\n", r)
+			fmt.Printf("Get subscription response %#v\n", r)
 			response <- r
 		case <-time.After(3 * time.Second):
 			fmt.Println("reponse subscription successfully.")
@@ -173,12 +184,15 @@ func (h *Handler) Exec(ctx context.Context, operationName string, query string, 
 	if response.Errors != nil {
 		log.Println(operationName, "response error:", response.Errors)
 	}
-	j, _ := json.Marshal(&response.Data)
-	fmt.Println("exec ", operationName, "response:", string(j))
-	data, err := response.Data.MarshalJSON()
+	j, err := response.Data.MarshalJSON()
 	if err != nil {
-		log.Panic("Cant parse query response.", query)
+		log.Panic("Failed to parse response data", err)
 	}
-	fmt.Println("Response:", string(data))
-	return string(data)
+	fmt.Println("exec ", operationName, "response:", string(j))
+	j, err = json.Marshal(response)
+	if err != nil {
+		log.Panic("Failed to marse response")
+	}
+	fmt.Println("marshed response ", string(j))
+	return string(j)
 }

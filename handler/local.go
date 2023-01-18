@@ -26,6 +26,7 @@ func SetupLocalEnv(h *Handler) {
 	// fmt.Println(response)
 
 	// time.Sleep(3 * time.Second)
+
 	fmt.Println("sendChat mutation")
 	res := h.Exec(context.TODO(), "sendChat", "mutation sendChat{\n sendChat(topic: \"1\", message: \"hello\") }\n", nil)
 	fmt.Println("response:", res)

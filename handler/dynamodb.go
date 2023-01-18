@@ -141,11 +141,11 @@ func (c *ConnectionDb) SaveSubscriber(id string, topic string, eventId string) {
 	fmt.Println("Save item response", res)
 }
 
-func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
+func (c *ConnectionDb) SaveEvent(topic string, message string) {
 
-	fmt.Println("Save connection", id, topic, "on db")
+	fmt.Println("Save connection", topic, "on db")
 	itemMap := EventItemType{
-		Id:          id,
+		Id:          topic,
 		Type:        string(Event) + fmt.Sprint(time.Now().UnixMilli()),
 		CreatedTime: time.Now().Format(time.RFC3339),
 		Topic:       topic,
@@ -153,7 +153,7 @@ func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
 	}
 	item, err := attributevalue.MarshalMap(itemMap)
 	if err != nil {
-		log.Panic("Failed to marsh item", id)
+		log.Panic("Failed to marsh item", topic)
 	}
 	fmt.Println("Marshaled item", item)
 	input := &dynamodb.PutItemInput{
@@ -162,7 +162,7 @@ func (c *ConnectionDb) SaveEvent(id string, topic string, message string) {
 	}
 	res, err := c.db.PutItem(context.Background(), input)
 	if err != nil {
-		log.Panic("Failed to save item on db", id, err)
+		log.Panic("Failed to save item on db", topic, err)
 	}
 	fmt.Println("Save item response", res)
 }

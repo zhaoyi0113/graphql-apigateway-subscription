@@ -61,8 +61,10 @@ func main() {
 		handler.SetupLocalEnv(h)
 	}
 	switch {
-	case handlerName == "graphql":
-		lambda.Start(h.GraphqlDefaultHandler)
+	case handlerName == "subscription":
+		lambda.Start(h.GraphqlSubscriptionHandler)
+	case handlerName == "querymutation":
+		lambda.Start(h.GraphqlQueryMutationHandler)
 	case handlerName == "stream":
 		lambda.Start(handler.StreamHandler)
 	}
