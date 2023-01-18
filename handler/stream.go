@@ -71,7 +71,7 @@ func StreamHandler(ctx context.Context, e events.DynamoDBEvent) {
 				Data:         j,
 			})
 			if err != nil {
-				log.Fatal("Failed to post to connection", err)
+				log.Println("Failed to post to connection", err)
 				continue
 			}
 			fmt.Println("post to connection response", output)

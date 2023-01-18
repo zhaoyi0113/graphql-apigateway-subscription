@@ -45,7 +45,7 @@ type ItemType string
 
 const (
 	CONNECTION ItemType = "connection.core"
-	SUBSCRIBER ItemType = "connection.subscriber"
+	SUBSCRIBER ItemType = "connection.subscriber."
 	Event      ItemType = "event."
 )
 
@@ -102,24 +102,46 @@ func (c *ConnectionDb) Disconnect(id string) {
 		TableName: aws.String(tableName),
 	})
 	if err != nil {
-		log.Panic("Cant delete item", id, err)
+		log.Println("Cant delete item", id, err)
 	}
-	key = struct {
-		Id   string `dynamodbav:"id"`
-		Type string `dynamodbav:"type"`
-	}{Id: id, Type: string(SUBSCRIBER)}
-	c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		Key:       item,
-		TableName: aws.String(tableName),
+
+	out, err := c.db.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName:                aws.String(tableName),
+		IndexName:                aws.String("typeGsi"),
+		KeyConditionExpression:   aws.String("#type = :type"),
+		ExpressionAttributeNames: map[string]string{"#type": "type"},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":type": &types.AttributeValueMemberS{Value: string(SUBSCRIBER) + id},
+		},
 	})
-	fmt.Println("Delete item output", output)
+	fmt.Println("Fetched item from db", string(SUBSCRIBER)+id, out.Count)
+	if err != nil {
+		log.Panic("Failed to get item", id, err)
+	}
+
+	for _, o := range out.Items {
+		data := map[string]string{}
+		attributevalue.UnmarshalMap(o, &data)
+		fmt.Println("Delete item", data["id"], data["type"])
+		key = struct {
+			Id   string `dynamodbav:"id"`
+			Type string `dynamodbav:"type"`
+		}{Id: data["id"], Type: data["type"]}
+		k, _ := attributevalue.MarshalMap(key)
+		c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+			Key:       k,
+			TableName: aws.String(tableName),
+		})
+		fmt.Println("Delete item output", output)
+	}
+
 }
 
 func (c *ConnectionDb) SaveSubscriber(id string, topic string, eventId string) {
 	fmt.Println("Save connection", id, topic, "on db")
 	itemMap := SubscriberItemType{
 		Id:           topic,
-		Type:         string(SUBSCRIBER),
+		Type:         string(SUBSCRIBER) + id,
 		CreatedTime:  time.Now().Format(time.RFC3339),
 		Topic:        topic,
 		ConnectionId: id,
@@ -168,22 +190,15 @@ func (c *ConnectionDb) SaveEvent(topic string, message string) {
 }
 
 func (c *ConnectionDb) GetSubscribers(topic string) []map[string]types.AttributeValue {
-	key := struct {
-		Id   string `dynamodbav:"id"`
-		Type string `dynamodbav:"type"`
-	}{Id: topic, Type: string(SUBSCRIBER)}
-	item, err := attributevalue.MarshalMap(key)
-	if err != nil {
-		log.Panic("Failed to marsh item", topic, err)
-	}
-	fmt.Println("Fetch item from db", topic, item)
+	fmt.Printf("Fetch item from db %#v, %#v\n", topic, string(SUBSCRIBER))
 	out, err := c.db.Query(context.TODO(), &dynamodb.QueryInput{
 		TableName:                aws.String(tableName),
-		KeyConditionExpression:   aws.String("id = :id and #type = :type"),
+		IndexName:                aws.String("topicGsi"),
+		KeyConditionExpression:   aws.String("topic = :topic AND begins_with(#type, :type)"),
 		ExpressionAttributeNames: map[string]string{"#type": "type"},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":id":   &types.AttributeValueMemberS{Value: topic},
-			":type": &types.AttributeValueMemberS{Value: string(SUBSCRIBER)},
+			":topic": &types.AttributeValueMemberS{Value: topic},
+			":type":  &types.AttributeValueMemberS{Value: string(SUBSCRIBER)},
 		},
 	})
 	fmt.Println("Fetched item from db", out.Count)

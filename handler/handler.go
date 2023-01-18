@@ -66,7 +66,7 @@ func (h *Handler) GraphqlHandler(ctx context.Context, event events.APIGatewayPro
 }
 
 func (h *Handler) GraphqlSubscriptionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
-	fmt.Printf("event.RequestContext: %#v\n", event.RequestContext)
+	fmt.Printf("event: %#v\n", event)
 	switch {
 	case event.RequestContext.EventType == "CONNECT":
 		return h.graphqlConnectionHandler(ctx, event)
@@ -87,10 +87,14 @@ func (h *Handler) graphqlDisconnectionHandler(ctx context.Context, event events.
 }
 
 func (h *Handler) graphqlConnectionHandler(ctx context.Context, event events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("receive event:", event)
 	log.Println("event.RequestContext ConnectionID:", event.RequestContext.ConnectionID)
 	h.connectionDb.SaveConnection(event.RequestContext.ConnectionID)
-	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}, nil
+	for k, v := range event.Headers {
+		fmt.Println("Receive header", k, "=", v)
+
+	}
+	// return events.APIGatewayProxyResponse{StatusCode: 200}, nil
+	return events.APIGatewayProxyResponse{Headers: map[string]string{"Sec-WebSocket-Protocol": "graphql-ws"}, StatusCode: 200}, nil
 }
 
 func (h *Handler) GraphqlQueryMutationHandler(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -123,7 +127,7 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 	}
 	if params.Type == "connection_init" {
 		fmt.Printf("Get connection_init type %#v\n", params)
-		return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+		return events.APIGatewayProxyResponse{Headers: map[string]string{"Sec-WebSocket-Protocol": "graphql-ws"}, StatusCode: 200}
 	}
 	payload, _ := json.Marshal(params)
 	fmt.Println("Exec graphql query payload: ", string(payload))
