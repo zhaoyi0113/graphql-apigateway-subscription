@@ -16,6 +16,6 @@ type Subscription {
   # Subscribe to events on the given topic.
   event(
     # Name of the topic to subscribe to.
-    on: String!
+    topic: String!
   ): Message!
 }

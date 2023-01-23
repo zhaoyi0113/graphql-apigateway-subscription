@@ -33,11 +33,11 @@ type Subscriber struct {
 	connectionId string
 }
 
-func NewResolver() *Resolver {
+func NewResolver(ctx context.Context) *Resolver {
 	r := &Resolver{
 		event:        make(chan *MessageEvent),
 		subscribers:  make(chan *Subscriber),
-		connectionDb: handler.NewConnectionDb(),
+		connectionDb: handler.NewConnectionDb(ctx),
 	}
 	go r.broadcastChat()
 	return r
@@ -69,15 +69,16 @@ func (r *Resolver) SendChat(ctx context.Context, args SendChatArgs) graphql.ID {
 }
 
 func (r *Resolver) Event(ctx context.Context, args *struct {
-	On string
+	Topic string
 }) chan *MessageEvent {
-	fmt.Println("resolver on event", args.On)
+	fmt.Println("resolver on event", args.Topic)
 	fmt.Println("connectoin id:", ctx.Value(handler.ConnectId{}))
 	connId := ctx.Value(handler.ConnectId{}).(string)
 	eventId := ctx.Value(handler.EventId{}).(string)
 	ch := make(chan *MessageEvent)
 	go func() {
-		r.connectionDb.SaveSubscriber(connId, args.On, eventId)
+		r.connectionDb.SaveSubscriber(connId, args.Topic, eventId)
+		ch <- &MessageEvent{}
 	}()
 	return ch
 }

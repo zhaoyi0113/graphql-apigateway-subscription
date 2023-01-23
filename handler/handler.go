@@ -20,8 +20,8 @@ type Handler struct {
 	connectionDb *ConnectionDb
 }
 
-func New(schema *graphql.Schema) *Handler {
-	h := Handler{schema, NewConnectionDb()}
+func New(ctx context.Context, schema *graphql.Schema) *Handler {
+	h := Handler{schema, NewConnectionDb(ctx)}
 	return &h
 }
 
@@ -93,7 +93,6 @@ func (h *Handler) graphqlConnectionHandler(ctx context.Context, event events.API
 		fmt.Println("Receive header", k, "=", v)
 
 	}
-	// return events.APIGatewayProxyResponse{StatusCode: 200}, nil
 	return events.APIGatewayProxyResponse{Headers: map[string]string{"Sec-WebSocket-Protocol": "graphql-ws"}, StatusCode: 200}, nil
 }
 
@@ -145,9 +144,9 @@ func (h *Handler) graphqlMessageHandler(ctx context.Context, event events.APIGat
 				resp, _ := json.Marshal(r)
 				fmt.Println("response from subscription ", string(resp))
 				return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
-			case <-time.After(3 * time.Second):
-				fmt.Println("subscription success")
-				return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
+				// case <-time.After(3 * time.Second):
+				// 	fmt.Println("subscription success")
+				// 	return events.APIGatewayProxyResponse{Body: "", StatusCode: 200}
 			}
 		} else {
 			res := h.Exec(ctx, params.Payload.OperationName, params.Payload.Query, params.Payload.Variables)

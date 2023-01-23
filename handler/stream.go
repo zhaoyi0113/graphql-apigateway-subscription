@@ -39,7 +39,7 @@ func GetApiClient() *apigatewaymanagementapi.Client {
 func StreamHandler(ctx context.Context, e events.DynamoDBEvent) {
 	fmt.Println("Receive stream event", e)
 	api := GetApiClient()
-	db := NewConnectionDb()
+	db := NewConnectionDb(ctx)
 	for _, record := range e.Records {
 		fmt.Printf("Processing request data for event ID %s, type %s.\n", record.EventID, record.EventName)
 		topic := record.Change.NewImage["topic"].String()

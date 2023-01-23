@@ -29,4 +29,5 @@ require (
 	github.com/graph-gophers/graphql-transport-ws v0.0.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
+	golang.org/x/exp v0.0.0-20230118134722-a68e582fa157 // indirect
 )

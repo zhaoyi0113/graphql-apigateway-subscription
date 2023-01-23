@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,16 +21,6 @@ import (
 
 var graphqlSchema *graphql.Schema
 var h *handler.Handler
-
-func init() {
-	var s, err = schema.GetSchema()
-	if err != nil {
-		panic("Failed to load schema")
-	}
-	println("schema:", s)
-	graphqlSchema = graphql.MustParseSchema(s, resolver.NewResolver())
-	h = handler.New(graphqlSchema)
-}
 
 func setupLocalHttpEnv() {
 	println("set up local env")
@@ -57,8 +48,19 @@ func main() {
 	lambdaEnv := os.Getenv("AWS_LAMBDA_RUNTIME_API")
 	handlerName := os.Getenv("HANDLER_NAME")
 	fmt.Println("Get handler name:", handlerName, lambdaEnv)
+	ctx := context.Background()
 	if len(lambdaEnv) == 0 {
-		handler.SetupLocalEnv(h)
+		ctx = handler.SetupLocalEnv(ctx)
+	}
+	var s, err = schema.GetSchema()
+	if err != nil {
+		panic("Failed to load schema")
+	}
+	println("schema:", s)
+	graphqlSchema = graphql.MustParseSchema(s, resolver.NewResolver(ctx))
+	h = handler.New(ctx, graphqlSchema)
+	if len(lambdaEnv) == 0 {
+		handler.Test(h)
 	}
 	switch {
 	case handlerName == "subscription":

@@ -51,10 +51,14 @@ const (
 
 const tableName = "Connection"
 
-func NewConnectionDb() *ConnectionDb {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-southeast-2"))
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+func NewConnectionDb(ctx context.Context) *ConnectionDb {
+	cfg, err := ctx.Value("awsconfig").(aws.Config)
+	if err == false {
+		localcfg, e := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-southeast-2"))
+		if e != nil {
+			log.Fatalf("unable to load SDK config, %v", err)
+		}
+		cfg = localcfg
 	}
 
 	// Using the Config value, create the DynamoDB client
